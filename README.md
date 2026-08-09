@@ -1,0 +1,2 @@
+# detektiftulisan
+Detektif Tulisanmu
