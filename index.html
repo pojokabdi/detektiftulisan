@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kamera Ajaib: Detektif Huruf</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Kita menghapus Tesseract.js dan akan menggunakan Google Gemini AI secara langsung via Fetch API -->
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Nunito', 'sans-serif'],
+                    },
+                    colors: {
+                        'edu-blue': '#4A90E2',
+                        'edu-green': '#2ECC71',
+                        'edu-yellow': '#F1C40F',
+                        'edu-red': '#E74C3C',
+                        'edu-purple': '#9B59B6'
+                    },
+                    animation: {
+                        'bounce-slow': 'bounce 2s infinite',
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #F4F7F6;
+            background-image: radial-gradient(#D1D5DB 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            border: 4px solid #fff;
+        }
+
+        /* Kamera Overlay Guide */
+        .camera-guide {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 30%;
+            border: 4px dashed rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+        }
+
+        /* Efek Teks berdasarkan kejelasan (Legibility) */
+        .text-clear {
+            color: #2c3e50;
+            text-shadow: 0px 2px 4px rgba(46, 204, 113, 0.3);
+        }
+
+        .text-blurry {
+            color: #7f8c8d;
+            filter: blur(1px);
+            opacity: 0.8;
+        }
+
+        .text-glitch {
+            color: #c0392b;
+            filter: blur(2px);
+            letter-spacing: 2px;
+            font-style: italic;
+            opacity: 0.7;
+        }
+
+        /* Progress Bar Kustom */
+        .meter-container {
+            width: 100%;
+            height: 24px;
+            background: #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .meter-fill {
+            height: 100%;
+            border-radius: 12px;
+            transition: width 1s ease-out, background-color 0.5s;
+        }
+
+        /* Loader Animasi */
+        .loader-wand {
+            font-size: 3rem;
+            display: inline-block;
+            animation: wand-wave 1.5s infinite;
+        }
+        @keyframes wand-wave {
+            0%, 100% { transform: rotate(-20deg); }
+            50% { transform: rotate(20deg); }
+        }
+    </style>
+</head>
+<body class="text-gray-800 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- MAIN MENU -->
+    <div id="main-menu" class="glass-panel max-w-lg w-full p-8 text-center animate-fade-in transition-all duration-300">
+        <div class="mb-6">
+            <i class="fa-solid fa-wand-magic-sparkles text-6xl text-edu-purple animate-bounce-slow"></i>
+        </div>
+        <h1 class="text-4xl font-extrabold text-edu-purple mb-2">Kamera Ajaib</h1>
+        <p class="text-lg text-gray-600 mb-8 font-semibold">Siapakah kamu hari ini?</p>
+
+        <div class="space-y-4">
+            <button onclick="openStudentMode()" class="w-full bg-edu-blue hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-2xl shadow-[0_6px_0_#2980b9] active:shadow-[0_0px_0_#2980b9] active:translate-y-[6px] transition-all text-xl flex items-center justify-center gap-3">
+                <i class="fa-solid fa-child-reaching text-2xl"></i> Saya Siswa
+            </button>
+            <button onclick="openTeacherMode()" class="w-full bg-edu-green hover:bg-green-600 text-white font-bold py-4 px-6 rounded-2xl shadow-[0_6px_0_#27ae60] active:shadow-[0_0px_0_#27ae60] active:translate-y-[6px] transition-all text-xl flex items-center justify-center gap-3">
+                <i class="fa-solid fa-chalkboard-user text-2xl"></i> Saya Guru
+            </button>
+        </div>
+    </div>
+
+    <!-- STUDENT MODE: CAMERA -->
+    <div id="student-mode" class="hidden w-full max-w-md flex flex-col items-center transition-all duration-300">
+        <!-- Header -->
+        <div class="w-full flex justify-between items-center mb-4">
+            <button onclick="goHome()" class="bg-white p-3 rounded-full text-gray-500 shadow hover:text-edu-red transition">
+                <i class="fa-solid fa-arrow-left"></i>
+            </button>
+            <div class="bg-white px-4 py-2 rounded-full shadow font-bold text-edu-purple flex items-center gap-2">
+                <i class="fa-solid fa-coins text-edu-yellow"></i> <span id="student-coins">120 Koin</span>
+            </div>
+        </div>
+
+        <div class="glass-panel w-full p-4 mb-4 flex flex-col items-center">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-2">Detektif Huruf</h2>
+            <p class="text-center text-sm text-gray-600 mb-4">Arahkan tulisanmu ke dalam kotak putus-putus, lalu jepret!</p>
+            
+            <!-- Area Kamera -->
+            <div id="camera-container" class="relative w-full aspect-[3/4] bg-black rounded-xl overflow-hidden mb-4 shadow-inner">
+                <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
+                <div class="camera-guide"></div>
+                <!-- Canvas tersembunyi untuk mengambil gambar -->
+                <canvas id="canvas" class="hidden"></canvas>
+            </div>
+
+            <!-- Tombol Jepret -->
+            <button id="snap-btn" onclick="takeSnapshot()" class="bg-edu-yellow hover:bg-yellow-500 text-yellow-900 font-extrabold py-4 px-8 rounded-full shadow-[0_6px_0_#f39c12] active:shadow-[0_0px_0_#f39c12] active:translate-y-[6px] transition-all text-xl w-full flex justify-center items-center gap-2">
+                <i class="fa-solid fa-camera"></i> Jepret Tulisan!
+            </button>
+        </div>
+    </div>
+
+    <!-- STUDENT MODE: RESULTS -->
+    <div id="result-mode" class="hidden w-full max-w-md flex flex-col items-center transition-all duration-300">
+         <div class="w-full flex justify-between items-center mb-4">
+            <button onclick="retakePhoto()" class="bg-white p-3 rounded-full text-gray-500 shadow hover:text-edu-blue transition">
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
+        </div>
+
+        <div class="glass-panel w-full p-6 flex flex-col items-center text-center relative overflow-hidden">
+            <!-- Tampilan Loading -->
+            <div id="loading-overlay" class="absolute inset-0 bg-white/95 z-10 flex flex-col items-center justify-center rounded-2xl">
+                <div class="loader-wand text-edu-purple mb-4">🪄</div>
+                <h3 class="text-xl font-bold text-gray-700 animate-pulse">Sedang membaca mantra...</h3>
+                <p class="text-sm text-gray-500 mt-2">Kamera sedang mengenali hurufmu.</p>
+            </div>
+
+            <!-- Hasil Pemindaian -->
+            <div id="result-content" class="w-full hidden">
+                <div id="result-icon" class="text-6xl mb-2">✨</div>
+                <h2 id="result-title" class="text-2xl font-bold mb-2"></h2>
+                
+                <!-- PREVIEW GAMBAR ASLI -->
+                <div class="w-full mb-4 relative rounded-xl overflow-hidden border-2 border-gray-200 shadow-sm bg-black flex justify-center">
+                    <p class="text-xs font-bold bg-gray-100/90 text-gray-700 py-1 px-3 w-full absolute top-0 left-0 z-10 backdrop-blur-sm">Foto Tulisanmu:</p>
+                    <img id="image-preview" class="w-full object-contain max-h-[150px] mt-6" alt="Hasil Foto" />
+                </div>
+
+                <!-- Scoreometer -->
+                <div class="w-full mb-4 text-left">
+                    <div class="flex justify-between text-sm font-bold text-gray-600 mb-1">
+                        <span>Tingkat Kejelasan:</span>
+                        <span id="score-text">0%</span>
+                    </div>
+                    <div class="meter-container">
+                        <div id="score-meter" class="meter-fill" style="width: 0%; background-color: #2ECC71;"></div>
+                    </div>
+                </div>
+
+                <!-- Hasil Teks -->
+                <div class="w-full text-left mb-1">
+                    <p class="text-sm font-bold text-gray-700">Hasil Bacaan Kamera:</p>
+                    <p class="text-xs text-gray-500 mb-2">Kata <span class="text-edu-yellow font-bold underline decoration-wavy">kuning</span> atau <span class="bg-red-200 text-edu-red px-1 rounded">merah</span> berarti hurufnya kurang rapi.</p>
+                </div>
+                <div class="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-4 w-full mb-6 min-h-[80px] flex items-center justify-center flex-wrap gap-y-2">
+                    <div id="recognized-text" class="text-xl break-words text-center leading-relaxed flex flex-wrap justify-center items-center"></div>
+                </div>
+
+                <p id="feedback-msg" class="text-md text-gray-600 font-semibold mb-6"></p>
+
+                <!-- Action Buttons -->
+                <div id="action-buttons" class="w-full space-y-3">
+                    <!-- Buttons injected via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEACHER MODE: DASHBOARD -->
+    <div id="teacher-mode" class="hidden w-full max-w-4xl transition-all duration-300">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-sm">
+            <div class="flex items-center gap-4">
+                <button onclick="goHome()" class="bg-gray-100 p-3 rounded-full text-gray-600 hover:bg-gray-200 transition">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div>
+                    <h2 class="text-2xl font-extrabold text-edu-green">Dasbor Guru Kelas 4</h2>
+                    <p class="text-sm text-gray-500">Pemantauan Latihan Menulis Mandiri</p>
+                </div>
+            </div>
+            <div class="text-right hidden sm:block">
+                <p class="text-sm font-bold text-gray-500">Tugas Hari Ini:</p>
+                <p class="text-lg font-bold text-gray-800">Menyalin Kalimat "Budi suka baca buku"</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Sidebar Analytics -->
+            <div class="col-span-1 space-y-6">
+                <!-- Heatmap/Analisis Singkat -->
+                <div class="glass-panel p-5 border-t-4 border-t-edu-blue">
+                    <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-edu-blue"></i> Ringkasan Kelas
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600"><span class="w-3 h-3 inline-block bg-edu-green rounded-full mr-2"></span>Sangat Terbaca</span>
+                            <span class="font-bold">60%</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600"><span class="w-3 h-3 inline-block bg-edu-yellow rounded-full mr-2"></span>Perlu Penyesuaian</span>
+                            <span class="font-bold">25%</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600"><span class="w-3 h-3 inline-block bg-edu-red rounded-full mr-2"></span>Butuh Bantuan</span>
+                            <span class="font-bold text-edu-red">15%</span>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-100">
+                        <p class="text-xs text-gray-500 font-bold mb-1">Huruf Paling Sulit Dibaca OCR hari ini:</p>
+                        <div class="flex gap-2">
+                            <span class="bg-red-100 text-red-600 px-2 py-1 rounded font-mono font-bold text-sm">b</span>
+                            <span class="bg-red-100 text-red-600 px-2 py-1 rounded font-mono font-bold text-sm">d</span>
+                            <span class="bg-red-100 text-red-600 px-2 py-1 rounded font-mono font-bold text-sm">g</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="w-full bg-white border-2 border-edu-green text-edu-green hover:bg-green-50 font-bold py-3 px-4 rounded-xl transition flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-file-arrow-down"></i> Unduh Laporan
+                </button>
+            </div>
+
+            <!-- Grid Siswa -->
+            <div class="col-span-1 md:col-span-2 glass-panel p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg">Peta Monitor Kerapian (Real-Time)</h3>
+                    <span class="text-xs font-bold bg-blue-100 text-blue-600 px-2 py-1 rounded">2 Baru saja diunggah</span>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="teacher-grid">
+                    <!-- Kartu Siswa di-generate via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Elemen DOM Utama
+        const mainMenu = document.getElementById('main-menu');
+        const studentMode = document.getElementById('student-mode');
+        const resultMode = document.getElementById('result-mode');
+        const teacherMode = document.getElementById('teacher-mode');
+        
+        // Elemen Kamera
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        let stream = null;
+
+        // Manajemen Tampilan
+        function hideAll() {
+            mainMenu.classList.add('hidden');
+            studentMode.classList.add('hidden');
+            resultMode.classList.add('hidden');
+            teacherMode.classList.add('hidden');
+        }
+
+        function goHome() {
+            stopCamera();
+            hideAll();
+            mainMenu.classList.remove('hidden');
+        }
+
+        async function openStudentMode() {
+            hideAll();
+            studentMode.classList.remove('hidden');
+            await startCamera();
+        }
+
+        function openTeacherMode() {
+            hideAll();
+            teacherMode.classList.remove('hidden');
+            renderTeacherGrid(); // Muat data tiruan
+        }
+
+        // Fungsionalitas Kamera
+        async function startCamera() {
+            try {
+                // Minta akses kamera menghadap belakang dengan resolusi tinggi (HD/FHD)
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920 }, // Meminta resolusi tinggi untuk OCR
+                        height: { ideal: 1080 }
+                    } 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Error accessing camera: ", err);
+                alert("Maaf, Kamera Ajaib membutuhkan akses kamera untuk bekerja. Izinkan akses kamera di perambanmu ya!");
+                goHome();
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+        }
+
+        async function takeSnapshot() {
+            if (!stream) return;
+            
+            // Setel ukuran canvas sesuai video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // Ambil bingkai gambar saat ini
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageDataUrl = canvas.toDataURL('image/png');
+            
+            // Pindah ke mode hasil
+            hideAll();
+            resultMode.classList.remove('hidden');
+            
+            // Mulai Proses OCR
+            processOCR(imageDataUrl);
+        }
+
+        function retakePhoto() {
+            hideAll();
+            studentMode.classList.remove('hidden');
+        }
+
+        async function processOCR(imageUrl) {
+            // Tampilkan UI Loading
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            document.getElementById('result-content').classList.add('hidden');
+            
+            // Ambil data Base64 dari gambar (buang header 'data:image/png;base64,')
+            const base64Data = imageUrl.split(',')[1];
+
+            try {
+                // Konfigurasi Gemini API
+                const apiKey = ""; // API Key dikelola otomatis oleh environment Canvas
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+                
+                // Prompt khusus agar Gemini bertindak sebagai Guru Bahasa Indonesia penilai tulisan
+                const prompt = `Kamu adalah guru SD yang ahli membaca tulisan tangan anak-anak. 
+                Tugasmu adalah membaca teks pada gambar tulisan tangan ini.
+                
+                Berikan analisis yang sangat teliti. Jika ada huruf yang bentuknya aneh (misal 'b' seperti 'd', atau 'a' tidak tertutup rapat), tandai kata tersebut.
+                
+                Kembalikan hasil HANYA dalam format JSON dengan struktur berikut:
+                {
+                    "text": "kalimat lengkap yang berhasil dibaca",
+                    "legibility_score": angka dari 0 sampai 100 (100 jika sangat rapi dan mudah dibaca, 50 jika sulit, 10 jika coretan acak),
+                    "words": [
+                        {
+                            "text": "kata",
+                            "status": "clear" atau "warning" atau "error". (Gunakan 'clear' jika kata ditulis rapi. 'warning' jika ada huruf yang kurang jelas/bentuknya sedikit salah tapi masih bisa ditebak. 'error' jika kata sangat berantakan atau tidak bisa dibaca sama sekali),
+                            "reason": "Alasan singkat dalam bahasa Indonesia mengapa berstatus warning/error (misal: 'huruf a terbuka', 'spasi terlalu rapat'). Kosongkan jika clear."
+                        }
+                    ],
+                    "feedback": "Pesan penyemangat singkat (1 kalimat) untuk anak SD berdasarkan kerapian tulisannya."
+                }`;
+
+                const payload = {
+                    contents: [
+                        {
+                            role: "user",
+                            parts: [
+                                { text: prompt },
+                                {
+                                    inlineData: {
+                                        mimeType: "image/png",
+                                        data: base64Data
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    generationConfig: {
+                        responseMimeType: "application/json"
+                    }
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates.length > 0) {
+                    const jsonString = result.candidates[0].content.parts[0].text;
+                    const aiData = JSON.parse(jsonString);
+                    displayResult(aiData, imageUrl);
+                } else {
+                    throw new Error("Gagal mendapatkan respons dari AI");
+                }
+
+            } catch (error) {
+                console.error("AI Analysis Error:", error);
+                // Fallback jika API gagal/offline
+                displayResult({ 
+                    text: "Maaf, kamera sedang lelah.", 
+                    legibility_score: 0, 
+                    words: [],
+                    feedback: "Terjadi kesalahan sistem saat menghubungi AI pembaca. Coba lagi ya!"
+                }, imageUrl);
+            }
+        }
+
+        function displayResult(data, imageUrl) {
+            // Sembunyikan Loading, Tampilkan Hasil
+            document.getElementById('loading-overlay').classList.add('hidden');
+            document.getElementById('result-content').classList.remove('hidden');
+
+            // Tampilkan Gambar Asli ke dalam Preview
+            const imagePreview = document.getElementById('image-preview');
+            if (imagePreview) imagePreview.src = imageUrl;
+
+            const resultTitle = document.getElementById('result-title');
+            const recognizedTextContainer = document.getElementById('recognized-text');
+            const feedbackMsg = document.getElementById('feedback-msg');
+            const scoreMeter = document.getElementById('score-meter');
+            const scoreText = document.getElementById('score-text');
+            const resultIcon = document.getElementById('result-icon');
+            const actionBtns = document.getElementById('action-buttons');
+            
+            // ----------------------------------------------------
+            // LOGIKA HIGHLIGHT KATA MENGGUNAKAN DATA AI
+            // ----------------------------------------------------
+            const words = data.words || [];
+            let htmlContent = "";
+            let wordCount = words.length;
+
+            words.forEach(word => {
+                const text = word.text;
+                const status = word.status;
+                const reason = word.reason || "Kamera bingung!";
+
+                // Klasifikasi warna berdasarkan status dari AI
+                if (status === 'clear') {
+                    // Terbaca Jelas -> Warna Hijau
+                    htmlContent += `<span class="text-edu-green font-extrabold mx-1">${text}</span>`;
+                } else if (status === 'warning') {
+                    // Kurang Jelas -> Warna Kuning, garis bawah bergelombang, dengan tooltip alasan
+                    htmlContent += `<span class="text-edu-yellow font-bold underline decoration-wavy mx-1 cursor-help" title="${reason}">${text}</span>`;
+                } else {
+                    // Sangat Sulit Dibaca -> Kotak Merah, seperti typo/glitch, dengan tooltip alasan
+                    htmlContent += `<span class="bg-red-200 text-edu-red px-2 py-1 rounded border border-red-400 mx-1 font-mono shadow-sm cursor-help" title="${reason}">${text}</span>`;
+                }
+            });
+
+            // Jika AI sama sekali tidak menemukan huruf di foto
+            if (wordCount === 0) {
+                htmlContent = `<span class="text-gray-400 italic text-sm">Kamera tidak menemukan tulisan. Pastikan kertas berada di tempat terang dan di dalam garis putus-putus.</span>`;
+            }
+            
+            // Masukkan elemen kata ke dalam kontainer
+            recognizedTextContainer.innerHTML = htmlContent;
+
+            // Skor Keseluruhan langsung dari AI
+            let legibilityScore = data.legibility_score || 0; 
+            if (wordCount === 0) legibilityScore = 10;
+
+            // Animasi Progress Bar
+            setTimeout(() => {
+                scoreMeter.style.width = legibilityScore + '%';
+            }, 100);
+            scoreText.innerText = legibilityScore + '%';
+            
+            // Menggunakan Feedback kustom dari Gemini atau fallback sistem
+            let customFeedback = data.feedback || "Coba tulis lagi ya!";
+
+            // Klasifikasi Pesan Berdasarkan Skor Keseluruhan
+            if (legibilityScore >= 80) {
+                // Kategori: RAPI
+                scoreMeter.style.backgroundColor = '#2ECC71'; // Hijau
+                resultIcon.innerText = "🌟";
+                resultTitle.innerText = "Luar Biasa!";
+                resultTitle.className = "text-2xl font-bold mb-2 text-edu-green";
+                
+                feedbackMsg.innerText = customFeedback;
+                
+                actionBtns.innerHTML = `
+                    <button onclick="submitWork(10)" class="w-full bg-edu-green hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl shadow-[0_4px_0_#27ae60] active:translate-y-[4px] active:shadow-none transition-all flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-paper-plane"></i> Kirim ke Ibu Guru (+10 Koin)
+                    </button>
+                    <button onclick="retakePhoto()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-6 rounded-xl transition-all">
+                        Foto Ulang
+                    </button>
+                `;
+            } else if (legibilityScore >= 50) {
+                // Kategori: SEDANG
+                scoreMeter.style.backgroundColor = '#F1C40F'; // Kuning
+                resultIcon.innerText = "👀";
+                resultTitle.innerText = "Hampir Sempurna!";
+                resultTitle.className = "text-2xl font-bold mb-2 text-edu-yellow";
+                
+                feedbackMsg.innerHTML = `${customFeedback} <br><span class="text-xs text-gray-500 font-normal">Sentuh kata berwarna kuning/merah untuk melihat saran perbaikan.</span>`;
+                
+                actionBtns.innerHTML = `
+                    <button onclick="retakePhoto()" class="w-full bg-edu-blue hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl shadow-[0_4px_0_#2980b9] active:translate-y-[4px] active:shadow-none transition-all flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-eraser"></i> Perbaiki & Foto Ulang
+                    </button>
+                    <button onclick="submitWork(5)" class="w-full bg-transparent border-2 border-gray-300 text-gray-500 font-bold py-3 px-6 rounded-xl hover:bg-gray-50 transition-all">
+                        Kirim Saja Sisa Ini (+5 Koin)
+                    </button>
+                `;
+            } else {
+                // Kategori: BUTUH BANTUAN
+                scoreMeter.style.backgroundColor = '#E74C3C'; // Merah
+                resultIcon.innerText = "🔍";
+                resultTitle.innerText = "Wah, Hurufnya Bersembunyi!";
+                resultTitle.className = "text-2xl font-bold mb-2 text-edu-red";
+                
+                feedbackMsg.innerHTML = `${customFeedback} <br><span class="text-xs text-gray-500 font-normal">Sentuh kata berwarna merah untuk melihat mengapa kamera bingung.</span>`;
+                
+                actionBtns.innerHTML = `
+                    <button onclick="retakePhoto()" class="w-full bg-edu-yellow hover:bg-yellow-500 text-yellow-900 font-bold py-3 px-6 rounded-xl shadow-[0_4px_0_#f39c12] active:translate-y-[4px] active:shadow-none transition-all flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-pencil"></i> Coba Tulis Lagi, Pasti Bisa!
+                    </button>
+                `;
+            }
+        }
+
+        function submitWork(coinsEarned) {
+            alert(`Tugas berhasil dikirim ke Ibu Guru!\n\n✨ Kamu mendapatkan ${coinsEarned} Koin Tinta ✨`);
+            
+            // Update koin UI (Simulasi sederhana)
+            let currentCoinsStr = document.getElementById('student-coins').innerText;
+            let currentCoins = parseInt(currentCoinsStr.replace(/\D/g, ''));
+            document.getElementById('student-coins').innerText = (currentCoins + coinsEarned) + " Koin";
+            
+            goHome();
+        }
+
+        // --- Data Simulasi untuk Dasbor Guru ---
+        const mockStudentData = [
+            { name: "Siti (Olimpiade)", status: "green", score: 92, text: "Budi suka baca buku", time: "10:02 AM" },
+            { name: "Reno", status: "yellow", score: 65, text: "Budi svka bcca buku", time: "10:05 AM" },
+            { name: "Andi (Slow Learner)", status: "red", score: 30, text: "B*#! #*&@ ^*#(", time: "10:15 AM", alert: true },
+            { name: "Putri", status: "green", score: 88, text: "Budi suka baca buku", time: "10:18 AM" }
+        ];
+
+        function renderTeacherGrid() {
+            const gridContainer = document.getElementById('teacher-grid');
+            gridContainer.innerHTML = ''; // Bersihkan
+
+            mockStudentData.forEach(student => {
+                let statusColor = "";
+                let bgBadge = "";
+                
+                if (student.status === "green") {
+                    statusColor = "border-edu-green";
+                    bgBadge = "bg-green-100 text-green-700";
+                } else if (student.status === "yellow") {
+                    statusColor = "border-edu-yellow";
+                    bgBadge = "bg-yellow-100 text-yellow-700";
+                } else {
+                    statusColor = "border-edu-red";
+                    bgBadge = "bg-red-100 text-red-700";
+                }
+
+                const cardHTML = `
+                    <div class="border-2 ${statusColor} rounded-xl p-4 bg-white shadow-sm flex flex-col justify-between">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h4 class="font-bold text-gray-800">${student.name}</h4>
+                                <span class="text-xs text-gray-400"><i class="fa-regular fa-clock"></i> ${student.time}</span>
+                            </div>
+                            <span class="text-xs font-extrabold px-2 py-1 rounded ${bgBadge}">
+                                ${student.score}% OCR
+                            </span>
+                        </div>
+                        <div class="bg-gray-50 rounded p-2 mb-3 mt-2 min-h-[50px] flex items-center justify-center">
+                            <p class="font-mono text-sm text-center ${student.status === 'red' ? 'text-glitch' : (student.status === 'yellow' ? 'text-blurry' : 'text-clear')}">
+                                "${student.text}"
+                            </p>
+                        </div>
+                        <div class="flex justify-between items-center mt-auto">
+                            ${student.alert ? 
+                              `<span class="text-xs font-bold text-edu-red flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation"></i> Butuh Bimbingan</span>` 
+                              : `<span class="text-xs text-gray-500">Tugas Selesai</span>`}
+                            
+                            <button class="text-edu-blue hover:bg-blue-50 p-2 rounded transition">
+                                <i class="fa-solid fa-comment-dots"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                gridContainer.innerHTML += cardHTML;
+            });
+        }
+    </script>
+</body>
+</html>
